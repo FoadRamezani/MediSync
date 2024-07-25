@@ -1,41 +1,39 @@
 <?php
-include 'db.php';
-
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $username = $_POST['username'];
-    $password = $_POST['password'];
-
-    // Check if the connection to the database was successful
-    if ($conn->connect_error) {
-        header("Location: index.php?login=sqlfail");
-        exit();
-    }
-
-    // Validate inputs
-    if (empty($username) || empty($password)) {
-        header("Location: index.php?login=missingvalues");
-        exit();
-    }
-
-    // Prepare and execute the SQL query
-    $sql = "SELECT * FROM users WHERE username='$username' AND password='$password'";
-    $result = $conn->query($sql);
-
-    // Check if the query was successful
-    if ($result) {
-        if ($result->num_rows > 0) {
-            // User found, redirect to dashboard or home page
-            header("Location: dashboard.php");
-            exit();
-        } else {
-            // Invalid username or password
-            header("Location: index.php?login=incorrect");
-            exit();
-        }
-    } else {
-        // Query failed
-        header("Location: index.php?login=sqlfail");
-        exit();
-    }
+session_start();
+$DATABASE_HOST = 'localhost';
+$DATABASE_USER = 'root';
+$DATABASE_PASS = '';
+$DATABASE_NAME = 'project_final';
+$con = mysqli_connect($DATABASE_HOST, $DATABASE_USER, $DATABASE_PASS, $DATABASE_NAME);
+if ( mysqli_connect_errno() ) {
+	header("Location: index.php?login=sqlfail");
+	exit();
+}
+if ( !isset($_POST['username'], $_POST['password']) ) {
+	header("Location: index.php?login=missingvalues");
+	exit();
+}
+if ($stmt = $con->prepare('SELECT id, password FROM accounts WHERE username = ?')) {
+	$stmt->bind_param('s', $_POST['username']);
+	$stmt->execute();
+	$stmt->store_result();
+	
+	if ($stmt->num_rows > 0) {
+		$stmt->bind_result($id, $password);
+		$stmt->fetch();
+		if (password_verify($_POST['password'], $password)) {
+			session_regenerate_id();
+			$_SESSION['loggedin'] = TRUE;
+			$_SESSION['name'] = $_POST['username'];
+			$_SESSION['id'] = $id;
+			header('Location: home.php');
+		} else {
+			header("Location: index.php?login=incorrect&username=".$_POST['username']);
+		}
+	} else {
+		header("Location: index.php?login=incorrect&username=".$_POST['username']);
+	}
+	
+	$stmt->close();
 }
 ?>
